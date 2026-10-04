@@ -1,6 +1,6 @@
 # 360º Virtual Tour – Exercise 1
 
-This project is **Exercise 1** of the **ARVI** course (2026). It is a virtual tour built from 360º photographs of three places in Italy, made with [A-Frame](https://aframe.io/) and playable in a desktop browser, on a phone, or in VR on Meta Quest.
+This project is **Exercise 1** of the **ARVI** course (2026). It is a virtual tour built from 360º photographs of three places in Italy, made with [A-Frame](https://aframe.io/).
 
 ## Features
 
@@ -40,4 +40,4 @@ All 360º photographs are from [Poly Haven](https://polyhaven.com/) and are rele
 |---|---|---|
 | Palermo | [Palermo Sidewalk](https://polyhaven.com/a/palermo_sidewalk) | *Andreas Mischok* |
 | Venice | [Venice Sunset](https://polyhaven.com/a/venice_sunset) | *Greg Zaal* |
-| Rome | [Colosseum](https://polyhaven.com/a/colosseum) | *Rico Cilliers* |
+| Rome | [Colosseum](https://polyhaven.com/a/colosseum) | *Greg Zaal and Rico Cilliers* |

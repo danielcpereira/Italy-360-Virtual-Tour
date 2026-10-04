@@ -1,514 +1,428 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Visita Virtual 360º</title>
+  <title>360º Virtual Tour</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
-</head>
-<body>
-  <!-- cursor -->
-  <a-scene cursor="rayOrigin: mouse" raycaster="objects: .clickable; far: 30">
-
-    <!-- photos (4096x2048, JPG) -->
-    <a-assets timeout="20000">
-      <img id="scene1" src="photos/palermo_sidewalk.jpg" crossorigin="anonymous">
-      <img id="scene2" src="photos/venice_sunset.jpg" crossorigin="anonymous">
-      <img id="scene3" src="photos/colosseum.jpg" crossorigin="anonymous">
-    </a-assets>
-
-    <!-- first photo -->
-    <a-sky id="sky" src="#scene1"></a-sky>
-
-    <a-entity id="content"></a-entity>
-
-    <!-- user: camera and VR controllers-->
-    <a-entity id="rig">
-      <a-entity camera look-controls wasd-controls="enabled: false" position="0 1.6 0">
-        <!-- transition between photos -->
-        <a-entity id="fade"
-                  visible="false"
-                  geometry="primitive: sphere; radius: 0.3"
-                  material="shader: flat; color: #000; side: back; transparent: true; opacity: 0; depthTest: false">
-        </a-entity>
-      </a-entity>
-      <a-entity laser-controls="hand: left"  raycaster="objects: .clickable; far: 30"></a-entity>
-      <a-entity laser-controls="hand: right" raycaster="objects: .clickable; far: 30"></a-entity>
-    </a-entity>
-  </a-scene>
 
   <script>
+    // text in english because A-Frame's original fonts don't support portuguese characters
+
+    // ---------------------------------------------------------------------------
+    // scenes
+    // ---------------------------------------------------------------------------
+
     const SCENES = {
       scene1: {
-        image: '#scene1',
         skyRotation: -230,
-        angle: 0,
-        panel: {
-          title: 'Centro Histórico, Palermo',
-          text: 'Capital da Sicília, Palermo foi fundada pelos fenícios há quase três mil anos. Árabes, normandos e espanhóis deixaram aqui a sua marca, visível nas ruas estreitas, varandas de ferro e fachadas barrocas. O seu património árabe-normando é Património Mundial da UNESCO.'
-        },
-        portals: [
-          { target: 'scene2', name: 'Veneza' },
-          { target: 'scene3', name: 'Roma' }
-        ]
+        title: 'Historic Centre, Palermo',
+        text: 'The capital of Sicily, Palermo was founded by the Phoenicians almost three thousand years ago. Arabs, Normans and Spaniards all left their mark here, visible in the narrow streets, iron balconies and Baroque facades. Its Arab-Norman heritage is a UNESCO World Heritage Site.',
+        portals: [{ target: 'scene2', name: 'Venice' }, { target: 'scene3', name: 'Rome' }]
       },
       scene2: {
-        image: '#scene2',
         skyRotation: 100,
-        angle: 0,
-        panel: {
-          title: 'Lagoa de Veneza',
-          text: 'Veneza ergue-se sobre mais de cem pequenas ilhas, assente em milhares de estacas de madeira. Ao fundo, ao pôr do sol, destacam-se os campanários de San Giorgio Maggiore e da Praça de São Marcos. A cidade e a sua lagoa são Património Mundial da UNESCO desde 1987.'
-        },
-        portals: [
-          { target: 'scene1', name: 'Palermo' },
-          { target: 'scene3', name: 'Roma' }
-        ]
+        title: 'Venice Lagoon',
+        text: 'Venice rises from more than a hundred small islands, built on thousands of wooden piles. In the distance, at sunset, stand the bell towers of San Giorgio Maggiore and St Mark\'s Square. The city and its lagoon have been a UNESCO World Heritage Site since 1987.',
+        portals: [{ target: 'scene1', name: 'Palermo' }, { target: 'scene3', name: 'Rome' }]
       },
       scene3: {
-        image: '#scene3',
         skyRotation: -120,
-        angle: 0,
-        panel: {
-          title: 'Coliseu, Roma',
-          text: 'Construído entre 70 e 80 d.C., durante a dinastia Flávia, o Coliseu é o maior anfiteatro alguma vez erguido pelo Império Romano. Recebia mais de 50 mil espectadores para combates de gladiadores e espetáculos públicos. A calçada onde estás é de basalto, original da época romana.'
-        },
-        portals: [
-          { target: 'scene1', name: 'Palermo' },
-          { target: 'scene2', name: 'Veneza' }
-        ]
+        title: 'Colosseum, Rome',
+        text: 'Built between 70 and 80 AD under the Flavian dynasty, the Colosseum is the largest amphitheatre ever erected by the Roman Empire. It held more than 50,000 spectators for gladiator fights and public shows. The paving you are standing on is original Roman basalt.',
+        portals: [{ target: 'scene1', name: 'Palermo' }, { target: 'scene2', name: 'Venice' }]
       }
     };
-    const INITIAL_SCENE = 'scene1';
-    const PORTAL_SPACING = 36;   // degrees between the panel and portals
-    const ACCENT_COLOR = '#4da3ff';    // interface color
 
-    const FONT = '"Helvetica Neue", Helvetica, Arial, sans-serif';
-
-    /* =====================================================================
-       COMPONENT: PORTAL
-       ===================================================================== */
-
-    const PORTAL_VERTEX = `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `;
-
-    // Crop of the 360º photo without distortion (same degrees horizontally and vertically)
-    const PORTAL_FRAGMENT = `
-      uniform sampler2D uTex;
-      uniform float uHover;
-      varying vec2 vUv;
-      void main() {
-        vec2 p = vUv * 2.0 - 1.0;
-        float r = length(p);
-        float fov = 0.07;                       // ~25º to each side
-        vec2 texUv = vec2(0.5 + p.x * fov, 0.5 + p.y * fov * 2.0);
-        vec3 color = texture2D(uTex, texUv).rgb;
-        color *= mix(0.78, 1.0, uHover);            // darker when idle
-        color *= 1.0 - 0.25 * smoothstep(0.6, 1.0, r);  // soft vignette
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `;
-
-    const photoTextures = {};
-    function photoTexture(imgEl) {
-      if (!photoTextures[imgEl.id]) {
-        const t = new THREE.Texture(imgEl);
-        t.needsUpdate = true;
-        photoTextures[imgEl.id] = t;
-      }
-      return photoTextures[imgEl.id];
+    // ---------------------------------------------------------------------------
+    // helpers
+    // ---------------------------------------------------------------------------
+    
+    function textReady(el) {
+      const text = el.components.text;
+      return !!(text && text.mesh && text.currentFont);
     }
 
-    const noRaycast = () => {}; // only the window detects the ray
+    function textBox(el) {
+      const mesh = el.components.text.mesh;
+      mesh.geometry.computeBoundingBox();
+      if (mesh.geometry.boundingBox.isEmpty()) {
+        return new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+      }
+      mesh.updateMatrix();
+      const box = mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix);
+      const margin = 4 * Math.abs(mesh.scale.x);
+      return box.expandByVector(new THREE.Vector3(-margin, -margin, 0));
+    }
 
-    AFRAME.registerComponent('portal', {
-      schema: { image: { type: 'selector' } },
+    function placeText(el, box, left, top) {
+      el.object3D.position.set(left - box.min.x, top - box.max.y, 0.003);
+    }
 
-      init: function () {
-        const RADIUS = 0.42;
-        this.hover = 0;
-        this.hoverTarget = 0;
-        this.baseColor = new THREE.Color('#ffffff');
-        this.accentColor = new THREE.Color(ACCENT_COLOR);
-
-        const group = new THREE.Group();
-        this.group = group;
-
-        // Window with the preview
-        this.windowMaterial = new THREE.ShaderMaterial({
-          uniforms: { uTex: { value: photoTexture(this.data.image) }, uHover: { value: 0 } },
-          vertexShader: PORTAL_VERTEX,
-          fragmentShader: PORTAL_FRAGMENT
-        });
-        group.add(new THREE.Mesh(new THREE.CircleGeometry(RADIUS, 96), this.windowMaterial));
-
-        // Thin rim
-        this.rim = new THREE.Mesh(
-          new THREE.RingGeometry(RADIUS, RADIUS + 0.012, 96),
-          new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9 })
-        );
-        this.rim.position.z = 0.002;
-        this.rim.raycast = noRaycast;
-        group.add(this.rim);
-
-        // Focus ring (only appears on hover)
-        this.focus = new THREE.Mesh(
-          new THREE.RingGeometry(RADIUS + 0.045, RADIUS + 0.052, 96),
-          new THREE.MeshBasicMaterial({ color: ACCENT_COLOR, transparent: true, opacity: 0 })
-        );
-        this.focus.position.z = 0.002;
-        this.focus.raycast = noRaycast;
-        group.add(this.focus);
-
-        this.el.setObject3D('portal', group);
-
-        this.el.addEventListener('mouseenter', () => { this.hoverTarget = 1; });
-        this.el.addEventListener('mouseleave', () => { this.hoverTarget = 0; });
+    // ---------------------------------------------------------------------------
+    // geometry
+    // ---------------------------------------------------------------------------
+    AFRAME.registerGeometry('rounded-rect', {
+      schema: {
+        width:    { default: 1, min: 0 },
+        height:   { default: 1, min: 0 },
+        // corners
+        radius:   { default: 0.05, min: 0 },
+        segments: { default: 8, min: 1, type: 'int' }
       },
-
-      tick: function (t, dt) {
-        if (!dt) return;
-        this.hover += (this.hoverTarget - this.hover) * Math.min(1, (dt / 1000) * 12);
-        const h = this.hover;
-        this.windowMaterial.uniforms.uHover.value = h;
-        this.rim.material.color.copy(this.baseColor).lerp(this.accentColor, h);
-        this.focus.material.opacity = h * 0.9;
-        const s = 1 + h * 0.06;
-        this.group.scale.set(s, s, s);
-      },
-
-      remove: function () {
-        this.el.removeObject3D('portal');
-        this.group.traverse((o) => {
-          if (o.geometry) o.geometry.dispose();
-          if (o.material) o.material.dispose();
-        });
+      init: function (data) {
+        const w = data.width / 2;
+        const h = data.height / 2;
+        const r = Math.min(data.radius, w, h);
+        const shape = new THREE.Shape();
+        shape.moveTo(-w + r, -h);
+        shape.lineTo(w - r, -h);
+        shape.absarc(w - r, -h + r, r, -Math.PI / 2, 0);
+        shape.lineTo(w, h - r);
+        shape.absarc(w - r, h - r, r, 0, Math.PI / 2);
+        shape.lineTo(-w + r, h);
+        shape.absarc(-w + r, h - r, r, Math.PI / 2, Math.PI);
+        shape.lineTo(-w, -h + r);
+        shape.absarc(-w + r, -h + r, r, Math.PI, Math.PI * 1.5);
+        this.geometry = new THREE.ShapeGeometry(shape, data.segments);
       }
     });
 
-    /* ===================================================================== */
+    // ---------------------------------------------------------------------------
+    // information panel
+    // ---------------------------------------------------------------------------
+    AFRAME.registerComponent('info-panel', {
+      schema: {
+        label:     { default: 'INFORMATION' },
+        title:     { default: '' },
+        text:      { default: '' },
+        minimized: { default: false } // true or false
+      },
+      
+      // panel sizes
+      WIDTH: 1.6,
+      PAD: 0.075,
+      // button to minimize sizes
+      BTN: 0.11,
+      BTN_MARGIN: 0.055,  
 
-    const sceneEl   = document.querySelector('a-scene');
-    const sky      = document.querySelector('#sky');
-    const content = document.querySelector('#content');
-    const fadeEl   = document.querySelector('#fade');
-    let currentScene = null;
-    let isChanging = false;
+      init: function () {
+        this.el.innerHTML = `
+          <a-entity class="ip-border" mixin="panel-border"></a-entity>
+          <a-entity class="ip-bg" mixin="panel-bg"></a-entity>
+          <a-entity class="ip-dash" mixin="accent-dash"></a-entity>
+          <a-entity class="ip-label" mixin="text-label"></a-entity>
+          <a-entity class="ip-title" mixin="text-title"></a-entity>
+          <a-entity class="ip-rule" mixin="hairline"></a-entity>
+          <a-entity class="ip-body" mixin="text-body"></a-entity>
+          <a-entity class="ip-btn" mixin="round-button">
+            <a-entity class="ip-icon-h" mixin="icon-bar" geometry="width: 0.042; height: 0.007"></a-entity>
+            <a-entity class="ip-icon-v" mixin="icon-bar" geometry="width: 0.007; height: 0.042"></a-entity>
+          </a-entity>
+          <a-entity class="ip-hit clickable" geometry="primitive: plane" material="visible: false"></a-entity>`;
 
-    // Position on a circle around the user
-    function positionFromAngle(angle, distance, height) {
-      const rad = THREE.MathUtils.degToRad(angle);
-      return { x: -Math.sin(rad) * distance, y: height, z: -Math.cos(rad) * distance };
-    }
+        const $ = (cls) => this.el.querySelector('.' + cls);
+        this.border = $('ip-border');
+        this.bg = $('ip-bg');
+        this.dash = $('ip-dash');
+        this.labelEl = $('ip-label');
+        this.titleEl = $('ip-title');
+        this.rule = $('ip-rule');
+        this.bodyEl = $('ip-body');
+        this.btn = $('ip-btn');
+        this.iconV = $('ip-icon-v');
+        this.hit = $('ip-hit');
 
-    // ---------- Canvas drawing (supports accents: ã, ç, é...) ----------
-    function roundedRect(ctx, x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    }
+        // The invisible header area is what the cursor / lasers hit.
+        this.hit.addEventListener('mouseenter', () => this.btn.emit('hoverstart', null, false));
+        this.hit.addEventListener('mouseleave', () => this.btn.emit('hoverend', null, false));
+        this.hit.addEventListener('click', () => {
+          this.el.setAttribute('info-panel', 'minimized', !this.data.minimized);
+        });
 
-    function wrapLines(ctx, text, maxWidth) {
-      const words = text.split(' ');
-      const lines = [];
-      let line = '';
-      for (const p of words) {
-        const test = line ? line + ' ' + p : p;
-        if (ctx.measureText(test).width > maxWidth && line) {
-          lines.push(line);
-          line = p;
+        // Lay out again whenever one of the fonts finishes loading.
+        this.layout = this.layout.bind(this);
+        this.el.addEventListener('textfontset', this.layout);
+
+        // Small "pop" when the card changes size.
+        this.el.setAttribute('animation__pop',
+          'property: scale; from: 0.97 0.97 1; to: 1 1 1; dur: 180; easing: easeOutQuad; startEvents: paneltoggle');
+      },
+
+      update: function (oldData) {
+        this.labelEl.setAttribute('text', 'value', this.data.label);
+        this.titleEl.setAttribute('text', 'value', this.data.title);
+        this.bodyEl.setAttribute('text', 'value', this.data.text);
+        this.layout();
+        if (oldData.minimized !== undefined && oldData.minimized !== this.data.minimized) {
+          this.el.emit('paneltoggle', null, false);
+        }
+      },
+
+      layout: function () {
+        if (![this.labelEl, this.titleEl, this.bodyEl].every(textReady)) { return; }
+
+        const min = this.data.minimized;
+        const PAD = this.PAD, BTN = this.BTN, M = this.BTN_MARGIN;
+        const title = textBox(this.titleEl);
+        const titleW = title.max.x - title.min.x;
+        const titleH = title.max.y - title.min.y;
+
+        // Card width: full when open, just enough for the title + button when minimized.
+        const W = min ? Math.min(this.WIDTH, PAD + titleW + 0.05 + BTN + M) : this.WIDTH;
+        const left = -W / 2 + PAD;
+        let H;
+
+        // Round button in the top-right corner (− when open, + when minimized).
+        const rowH = min ? Math.max(BTN, titleH) : BTN;
+        const rowY = -M - rowH / 2;
+        this.btn.object3D.position.set(W / 2 - M - BTN / 2, rowY, 0.004);
+        this.iconV.setAttribute('visible', min);
+
+        if (min) {
+          // Minimized: only the title, vertically centred on the button.
+          placeText(this.titleEl, title, left, rowY + titleH / 2);
+          H = rowH + 2 * M;
+          this.setHit(W, H, 0);
         } else {
-          line = test;
+          // Open: accent dash + LABEL on the button row, then title, rule and text.
+          const label = textBox(this.labelEl);
+          const labelH = label.max.y - label.min.y;
+          this.dash.object3D.position.set(left + 0.025, rowY, 0.003);
+          placeText(this.labelEl, label, left + 0.075, rowY + labelH / 2);
+
+          let y = -M - BTN - 0.02;
+          placeText(this.titleEl, title, left, y);
+          y -= titleH + 0.065;
+          this.setHit(W, -y - 0.03, 0);
+
+          this.rule.setAttribute('geometry', 'width', W - 2 * PAD);
+          this.rule.object3D.position.set(0, y, 0.002);
+          y -= 0.06;
+
+          const body = textBox(this.bodyEl);
+          placeText(this.bodyEl, body, left, y);
+          y -= body.max.y - body.min.y;
+          H = -y + PAD;
         }
+
+        [this.dash, this.labelEl, this.rule, this.bodyEl].forEach((el) => {
+          el.setAttribute('visible', !min);
+        });
+
+        // Card background (and a thin border behind it), centred below the top edge.
+        this.bg.setAttribute('geometry', { width: W, height: H });
+        this.bg.object3D.position.set(0, -H / 2, 0);
+        this.border.setAttribute('geometry', { width: W + 0.012, height: H + 0.012 });
+        this.border.object3D.position.set(0, -H / 2, -0.002);
+      },
+
+      // Invisible clickable area over the header row (the whole bar when minimized).
+      setHit: function (width, height, top) {
+        this.hit.setAttribute('geometry', { width: width, height: height });
+        this.hit.object3D.position.set(0, top - height / 2, 0.005);
       }
-      if (line) lines.push(line);
-      return lines;
-    }
+    });
 
-    function truncate(ctx, text, maxWidth) {
-      let t = text;
-      while (ctx.measureText(t).width > maxWidth && t.length > 3) t = t.slice(0, -2);
-      return t === text ? t : t.trim() + '…';
-    }
+    // ---------------------------------------------------------------------------
+    // portal
+    // ---------------------------------------------------------------------------
+    AFRAME.registerComponent('portal', {
+      schema: {
+        target:  { default: '' },                
+        label:   { default: '' },                 
+        preview: { type: 'vec2', default: { x: 0.43, y: 0.36 } } 
+      },
 
-    function panelTexture(title, text) {
-      const c = document.createElement('canvas');
-      c.width = 1024; c.height = 576;
-      const ctx = c.getContext('2d');
+      RADIUS: 0.42,
 
-      ctx.fillStyle = 'rgba(16, 18, 22, 0.86)';
-      roundedRect(ctx, 0, 0, c.width, c.height, 24);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
-      ctx.lineWidth = 2;
-      roundedRect(ctx, 1, 1, c.width - 2, c.height - 2, 23);
-      ctx.stroke();
+      init: function () {
+        const R = this.RADIUS;
+        this.el.innerHTML = `
+          <a-entity class="pt-halo" geometry="primitive: ring; radiusInner: ${R + 0.018}; radiusOuter: ${R + 0.03}; segmentsTheta: 64"
+                    material="shader: flat; color: #000; opacity: 0.3; transparent: true"></a-entity>
+          <a-entity class="pt-disc clickable" geometry="primitive: circle; radius: ${R}; segments: 64"
+                    material="shader: flat; repeat: 0.14 0.28"></a-entity>
+          <a-entity class="pt-rim" mixin="portal-rim" geometry="primitive: ring; radiusInner: ${R}; radiusOuter: ${R + 0.018}; segmentsTheta: 64"
+                    position="0 0 0.002"></a-entity>
+          <a-entity class="pt-tag" position="0 ${-R - 0.2} 0">
+            <a-entity class="pt-pill clickable" mixin="portal-pill"></a-entity>
+            <a-entity class="pt-caption" mixin="text-caption" text="value: GO TO"></a-entity>
+            <a-entity class="pt-name" mixin="text-portal"></a-entity>
+          </a-entity>`;
 
-      // small label + accent bar
-      ctx.fillStyle = ACCENT_COLOR;
-      ctx.fillRect(64, 64, 40, 4);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-      ctx.font = `600 26px ${FONT}`;
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText('INFORMAÇÃO', 120, 74);
+        const $ = (cls) => this.el.querySelector('.' + cls);
+        this.disc = $('pt-disc');
+        this.rim = $('pt-rim');
+        this.pill = $('pt-pill');
+        this.caption = $('pt-caption');
+        this.nameEl = $('pt-name');
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `600 58px ${FONT}`;
-      ctx.fillText(truncate(ctx, title, 800), 64, 150);
+        // mouse hover
+        this.el.addEventListener('mouseenter', () => {
+          this.rim.emit('hoverstart', null, false);
+          this.pill.emit('hoverstart', null, false);
+        });
+        this.el.addEventListener('mouseleave', () => {
+          this.rim.emit('hoverend', null, false);
+          this.pill.emit('hoverend', null, false);
+        });
+        this.el.addEventListener('click', () => {
+          this.el.emit('navigate', { target: this.data.target });
+        });
 
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
-      ctx.font = `38px ${FONT}`;
-      const lines = wrapLines(ctx, text, c.width - 128);
-      lines.slice(0, 7).forEach((l, i) => ctx.fillText(l, 64, 226 + i * 52));
+        this.layout = this.layout.bind(this);
+        this.el.addEventListener('textfontset', this.layout);
+      },
 
-      return c.toDataURL();
-    }
-
-    function labelTexture(text) {
-      const c = document.createElement('canvas');
-      c.width = 512; c.height = 128;
-      const ctx = c.getContext('2d');
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = `600 24px ${FONT}`;
-      ctx.fillText('IR PARA', c.width / 2, 36);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `600 46px ${FONT}`;
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
-      ctx.shadowBlur = 12;
-      ctx.fillText(truncate(ctx, text, 480), c.width / 2, 92);
-      return c.toDataURL();
-    }
-
-    // ---------- vibration and sound----------
-    let audioCtx = null;
-    function tone(freqStart, freqEnd, dur, volume) {
-      try {
-        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        const now = audioCtx.currentTime;
-        const o = audioCtx.createOscillator();
-        const g = audioCtx.createGain();
-        o.type = 'sine';
-        o.frequency.setValueAtTime(freqStart, now);
-        o.frequency.exponentialRampToValueAtTime(freqEnd, now + dur);
-        g.gain.setValueAtTime(0.0001, now);
-        g.gain.exponentialRampToValueAtTime(volume, now + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-        o.connect(g).connect(audioCtx.destination);
-        o.start(now);
-        o.stop(now + dur);
-      } catch (e) {}
-    }
-    const hoverSound  = () => tone(1200, 1200, 0.04, 0.03); 
-    const clickSound = () => tone(660, 440, 0.12, 0.07);     
-
-    function vibrate(evt, intensity, ms) {
-      try {
-        const controller = evt.detail && evt.detail.cursorEl;
-        const tc = controller && controller.components['tracked-controls'];
-        const gamepad = tc && tc.controller && tc.controller.gamepad;
-        if (gamepad && gamepad.hapticActuators && gamepad.hapticActuators[0]) {
-          gamepad.hapticActuators[0].pulse(intensity, ms);
+      update: function () {
+        const d = this.data;
+        if (d.target) {
+          this.disc.setAttribute('material', { src: '#' + d.target, offset: d.preview });
         }
-      } catch (e) {}
-    }
+        this.nameEl.setAttribute('text', 'value', d.label);
+        this.layout();
+      },
 
-    // ---------- information panel minimizable ----------
-    let panelMinimized = false;
+      layout: function () {
+        if (![this.caption, this.nameEl].every(textReady)) { return; }
+        const cap = textBox(this.caption);
+        const name = textBox(this.nameEl);
+        const capW = cap.max.x - cap.min.x, capH = cap.max.y - cap.min.y;
+        const nameW = name.max.x - name.min.x, nameH = name.max.y - name.min.y;
 
-    function buttonTexture(symbol, hover) {
-      const c = document.createElement('canvas');
-      c.width = c.height = 128;
-      const ctx = c.getContext('2d');
-      ctx.beginPath(); ctx.arc(64, 64, 56, 0, Math.PI * 2);
-      ctx.fillStyle = hover ? ACCENT_COLOR : '#2a2d33';
-      ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = hover ? ACCENT_COLOR : 'rgba(255, 255, 255, 0.35)';
-      ctx.stroke();
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 7; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(42, 64); ctx.lineTo(86, 64); ctx.stroke();
-      if (symbol === '+') { ctx.beginPath(); ctx.moveTo(64, 42); ctx.lineTo(64, 86); ctx.stroke(); }
-      return c.toDataURL();
-    }
+        const PADX = 0.075, PADY = 0.05, GAP = 0.035;
+        const W = Math.max(capW, nameW) + 2 * PADX;
+        const H = capH + GAP + nameH + 2 * PADY;
 
-    function tabTexture(title, hover) {
-      const c = document.createElement('canvas');
-      c.width = 640; c.height = 128;
-      const ctx = c.getContext('2d');
-      ctx.fillStyle = 'rgba(16, 18, 22, 0.86)';
-      roundedRect(ctx, 2, 2, c.width - 4, c.height - 4, 20);
-      ctx.fill();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = hover ? ACCENT_COLOR : 'rgba(255, 255, 255, 0.15)';
-      ctx.stroke();
-
-      ctx.fillStyle = ACCENT_COLOR;
-      ctx.fillRect(40, 62, 28, 4);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `600 42px ${FONT}`;
-      ctx.textBaseline = 'middle';
-      ctx.fillText(truncate(ctx, title, 420), 86, 66);
-
-      ctx.strokeStyle = hover ? ACCENT_COLOR : 'rgba(255, 255, 255, 0.8)';
-      ctx.lineWidth = 6; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.moveTo(566, 64); ctx.lineTo(598, 64); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(582, 48); ctx.lineTo(582, 80); ctx.stroke();
-      return c.toDataURL();
-    }
-
-    function refreshRaycasters() {
-      document.querySelectorAll('[raycaster]').forEach((r) => {
-        if (r.components.raycaster) r.components.raycaster.refreshObjects();
-      });
-    }
-
-    // Normal / hover / click states for the panel buttons
-    function withHover(el, texNormal, texHover, onClick) {
-      el.addEventListener('mouseenter', (evt) => {
-        el.setAttribute('material', 'src', texHover);
-        hoverSound();
-        vibrate(evt, 0.15, 15);
-      });
-      el.addEventListener('mouseleave', () => el.setAttribute('material', 'src', texNormal));
-      el.addEventListener('click', (evt) => {
-        clickSound();
-        vibrate(evt, 0.35, 30);
-        el.setAttribute('material', 'src', texNormal);
-        onClick();
-      });
-    }
-
-    function createPanel(scene) {
-      const group = document.createElement('a-entity');
-      group.setAttribute('position', positionFromAngle(scene.angle, 3, 1.6));
-      group.setAttribute('rotation', { x: 0, y: scene.angle, z: 0 });
-
-      const full = document.createElement('a-entity');
-      full.setAttribute('geometry', { primitive: 'plane', width: 1.6, height: 0.9 });
-      full.setAttribute('material', {
-        shader: 'flat', transparent: true, side: 'double',
-        src: panelTexture(scene.panel.title, scene.panel.text)
-      });
-
-      const texMin = buttonTexture('–', false);
-      const texMinHover = buttonTexture('–', true);
-      const button = document.createElement('a-entity');
-      button.setAttribute('position', '0.68 0.33 0.01');
-      button.setAttribute('geometry', { primitive: 'plane', width: 0.11, height: 0.11 });
-      button.setAttribute('material', { shader: 'flat', transparent: true, alphaTest: 0.5, src: texMin });
-      full.appendChild(button);
-
-      const texTab = tabTexture(scene.panel.title, false);
-      const texTabHover = tabTexture(scene.panel.title, true);
-      const tab = document.createElement('a-entity');
-      tab.setAttribute('position', '0 0.35 0');
-      tab.setAttribute('geometry', { primitive: 'plane', width: 1.0, height: 0.2 });
-      tab.setAttribute('material', { shader: 'flat', transparent: true, side: 'double', src: texTab });
-
-      group.appendChild(full);
-      group.appendChild(tab);
-
-      function apply(animate) {
-        const min = panelMinimized;
-        full.setAttribute('visible', !min);
-        tab.setAttribute('visible', min);
-        if (min) { tab.classList.add('clickable'); button.classList.remove('clickable'); }
-        else     { button.classList.add('clickable'); tab.classList.remove('clickable'); }
-        if (animate) {
-          const target = min ? tab : full;
-          target.removeAttribute('animation__open');
-          target.setAttribute('animation__open',
-            { property: 'scale', from: '1 0.85 1', to: '1 1 1', dur: 180, easing: 'easeOutQuad' });
-        }
-        refreshRaycasters();
+        placeText(this.caption, cap, -capW / 2, H / 2 - PADY);
+        placeText(this.nameEl, name, -nameW / 2, H / 2 - PADY - capH - GAP);
+        this.pill.setAttribute('geometry', { width: W, height: H, radius: H / 2 });
       }
+    });
 
-      withHover(button, texMin, texMinHover, () => { panelMinimized = true;  apply(true); });
-      withHover(tab,   texTab, texTabHover, () => { panelMinimized = false; apply(true); });
+    // ---------------------------------------------------------------------------
+    // central controler 
+    // ---------------------------------------------------------------------------
+    AFRAME.registerComponent('tour', {
+      schema: {
+        start: { default: 'scene1' }
+      },
 
-      apply(false);
-      return group;
-    }
+      init: function () {
+        this.sky = this.el.querySelector('#sky');
+        this.panel = this.el.querySelector('#panel');
+        this.portals = this.el.querySelectorAll('[portal]');
+        this.fade = this.el.querySelector('#fade');
+        this.current = null;
+        this.busy = false;
+        
+        // navigate order
+        this.el.addEventListener('navigate', (evt) => this.goTo(evt.detail.target));
+        this.show(this.data.start);
+      },
 
-    // ---------- Portal ----------
-    function createPortal(portal, angle) {
-      const target = SCENES[portal.target];
-      const el = document.createElement('a-entity');
-      el.classList.add('clickable');
-      el.setAttribute('position', positionFromAngle(angle, 3.2, 1.55));
-      el.setAttribute('rotation', { x: 0, y: angle, z: 0 });
-      el.setAttribute('portal', { image: target.image });
+      show: function (id) {
+        const scene = SCENES[id];
+        this.current = id;
+        this.sky.setAttribute('src', '#' + id);
+        this.sky.setAttribute('rotation', { x: 0, y: scene.skyRotation, z: 0 });
+        this.panel.setAttribute('info-panel', { title: scene.title, text: scene.text });
+        this.portals.forEach((portalEl, i) => {
+          const p = scene.portals[i];
+          portalEl.setAttribute('portal', { target: p.target, label: p.name, preview: this.previewOf(p.target) });
+        });
+      },
 
-      const label = document.createElement('a-entity');
-      label.setAttribute('position', '0 -0.62 0');
-      label.setAttribute('geometry', { primitive: 'plane', width: 0.8, height: 0.2 });
-      label.setAttribute('material', {
-        shader: 'flat', transparent: true, src: labelTexture(portal.name)
-      });
-      el.appendChild(label);
+      // photo preview for portal
+      previewOf: function (id) {
+        const u = ((SCENES[id].skyRotation / 360 - 0.25) % 1 + 1) % 1;
+        return { x: u - 0.07, y: 0.36 };
+      },
 
-      el.addEventListener('mouseenter', (evt) => { hoverSound(); vibrate(evt, 0.2, 20); });
-      el.addEventListener('click', (evt) => {
-        clickSound();
-        vibrate(evt, 0.5, 50);
-        goTo(portal.target);
-      });
-      return el;
-    }
-
-    // ---------- Scene change with fade to black ----------
-    function fade(target, duration) {
-      return new Promise((resolve) => {
-        fadeEl.object3D.visible = true;
-        const done = () => {
-          fadeEl.removeEventListener('animationcomplete__fade', done);
-          if (target === 0) fadeEl.object3D.visible = false;
-          resolve();
-        };
-        fadeEl.addEventListener('animationcomplete__fade', done);
-        fadeEl.setAttribute('animation__fade',
-          { property: 'material.opacity', to: target, dur: duration, easing: 'easeInOutQuad' });
-      });
-    }
-
-    function showScene(id) {
-      const scene = SCENES[id];
-      currentScene = id;
-      sky.setAttribute('src', scene.image);
-      sky.setAttribute('rotation', { x: 0, y: scene.skyRotation || 0, z: 0 });
-      while (content.firstChild) content.removeChild(content.firstChild);
-      content.appendChild(createPanel(scene));
-      // left portal and right portal, one on each side of the panel
-      content.appendChild(createPortal(scene.portals[0], scene.angle + PORTAL_SPACING));
-      content.appendChild(createPortal(scene.portals[1], scene.angle - PORTAL_SPACING));
-    }
-
-    async function goTo(id) {
-      if (isChanging || id === currentScene) return;
-      isChanging = true;
-      await fade(1, 400);
-      showScene(id);
-      await new Promise((r) => setTimeout(r, 100));
-      await fade(0, 450);
-      isChanging = false;
-    }
-
-    // Startup
-    function start() { showScene(INITIAL_SCENE); }
-    if (sceneEl.hasLoaded) start();
-    else sceneEl.addEventListener('loaded', start);
+      // fade between photos
+      goTo: function (id) {
+        if (id === this.current || this.busy) { return; }
+        this.busy = true;
+        this.fade.addEventListener('animationcomplete__out', () => {
+          this.show(id);
+          this.fade.emit('fadein');
+          this.busy = false;
+        }, { once: true });
+        this.fade.emit('fadeout');
+      }
+    });
   </script>
+</head>
+<body>
+  <a-scene tour="start: scene1"
+           cursor="rayOrigin: mouse" raycaster="objects: .clickable">
+
+    <a-assets>
+      <!-- photos (4096x2048, JPG) -->
+      <img id="scene1" src="photos/palermo_sidewalk.jpg" crossorigin="anonymous">
+      <img id="scene2" src="photos/venice_sunset.jpg" crossorigin="anonymous">
+      <img id="scene3" src="photos/colosseum.jpg" crossorigin="anonymous">
+
+      <!--
+        Mixins = reusable styles (A-Frame's equivalent of CSS classes).
+        Text: anchor left + baseline top, so (0,0) is the top-left corner of the text.
+        Letter size = width / wrapCount (bigger wrapCount = smaller letters).
+        Card text width = 1.6 - 2 x 0.075 = 1.45; the title leaves room for the button.
+      -->
+      <a-mixin id="text-label"   text="font: roboto; anchor: left; baseline: top; width: 1.0; wrapCount: 32; letterSpacing: 5; color: #8d97a8"></a-mixin>
+      <a-mixin id="text-title"   text="font: roboto; anchor: left; baseline: top; width: 1.29; wrapCount: 22; color: #ffffff"></a-mixin>
+      <a-mixin id="text-body"    text="font: roboto; anchor: left; baseline: top; width: 1.45; wrapCount: 40; lineHeight: 56; color: #d4d9e1"></a-mixin>
+      <a-mixin id="text-caption" text="font: roboto; anchor: left; baseline: top; width: 0.7; wrapCount: 24; letterSpacing: 6; color: #9aa4b5"></a-mixin>
+      <a-mixin id="text-portal"  text="font: roboto; anchor: left; baseline: top; width: 1.2; wrapCount: 20; color: #ffffff"></a-mixin>
+
+      <a-mixin id="panel-bg"     geometry="primitive: rounded-rect; radius: 0.06" material="shader: flat; color: #0f1217; opacity: 0.9; transparent: true"></a-mixin>
+      <a-mixin id="panel-border" geometry="primitive: rounded-rect; radius: 0.066" material="shader: flat; color: #ffffff; opacity: 0.14; transparent: true"></a-mixin>
+      <a-mixin id="hairline"     geometry="primitive: plane; height: 0.003" material="shader: flat; color: #ffffff; opacity: 0.14; transparent: true"></a-mixin>
+      <a-mixin id="accent-dash"  geometry="primitive: plane; width: 0.05; height: 0.006" material="shader: flat; color: #4da3ff"></a-mixin>
+      <a-mixin id="icon-bar"     geometry="primitive: plane" material="shader: flat; color: #ffffff" position="0 0 0.001"></a-mixin>
+
+      <!-- hover states: the components emit hoverstart / hoverend on these elements -->
+      <a-mixin id="round-button"
+               geometry="primitive: circle; radius: 0.055; segments: 32"
+               material="shader: flat; color: #2a303b"
+               animation__grow="property: scale; to: 1.12 1.12 1; dur: 150; easing: easeOutQuad; startEvents: hoverstart"
+               animation__shrink="property: scale; to: 1 1 1; dur: 150; easing: easeOutQuad; startEvents: hoverend"
+               animation__tint="property: components.material.material.color; type: color; to: #4da3ff; dur: 150; startEvents: hoverstart"
+               animation__untint="property: components.material.material.color; type: color; to: #2a303b; dur: 150; startEvents: hoverend"></a-mixin>
+      <a-mixin id="portal-rim"
+               material="shader: flat; color: #ffffff"
+               animation__tint="property: components.material.material.color; type: color; to: #4da3ff; dur: 150; startEvents: hoverstart"
+               animation__untint="property: components.material.material.color; type: color; to: #ffffff; dur: 150; startEvents: hoverend"></a-mixin>
+      <a-mixin id="portal-pill"
+               geometry="primitive: rounded-rect; segments: 12"
+               material="shader: flat; color: #0f1217; opacity: 0.85; transparent: true"
+               animation__tint="property: components.material.material.color; type: color; to: #1d4f86; dur: 150; startEvents: hoverstart"
+               animation__untint="property: components.material.material.color; type: color; to: #0f1217; dur: 150; startEvents: hoverend"></a-mixin>
+      <a-mixin id="hover-grow"
+               animation__grow="property: scale; to: 1.06 1.06 1; dur: 150; easing: easeOutQuad; startEvents: mouseenter"
+               animation__shrink="property: scale; to: 1 1 1; dur: 150; easing: easeOutQuad; startEvents: mouseleave"></a-mixin>
+    </a-assets>
+
+    <!-- 360º photo around the user -->
+    <a-sky id="sky"></a-sky>
+
+    <!-- information card and the two portals -->
+    <a-entity id="panel" info-panel position="0 2.05 -3"></a-entity>
+    <a-entity portal mixin="hover-grow" position="-1.75 1.55 -2.7" rotation="0 33 0"></a-entity>
+    <a-entity portal mixin="hover-grow" position="1.75 1.55 -2.7" rotation="0 -33 0"></a-entity>
+
+    <!-- user: camera and VR controllers -->
+    <a-entity camera look-controls wasd-controls="enabled: false" position="0 1.6 0">
+      <!-- black sphere around the head, used for the fade between scenes -->
+      <a-sphere id="fade" radius="0.3"
+                material="shader: flat; color: #000; side: back; transparent: true; opacity: 0; depthTest: false"
+                animation__out="property: material.opacity; to: 1; dur: 400; startEvents: fadeout"
+                animation__in="property: material.opacity; to: 0; dur: 400; startEvents: fadein">
+      </a-sphere>
+    </a-entity>
+    <a-entity laser-controls="hand: left"  raycaster="objects: .clickable; lineColor: #4da3ff; lineOpacity: 0.7"></a-entity>
+    <a-entity laser-controls="hand: right" raycaster="objects: .clickable; lineColor: #4da3ff; lineOpacity: 0.7"></a-entity>
+  </a-scene>
 </body>
 </html>
