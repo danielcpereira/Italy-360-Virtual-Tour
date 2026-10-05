@@ -18,7 +18,7 @@ This project is **Exercise 1** of the **ARVI** course (2026). It is a virtual to
 
 The project is published with GitHub Pages:
 
-**https://YOUR-USERNAME.github.io/YOUR-REPOSITORY/**
+**https://danielcpereira.github.io/Italy-360-Virtual-Tour/**
 
 - **Desktop:** open the link and drag with the mouse to look around.
 - **Mobile:** open the link and move the phone or drag with your finger.
