@@ -10,113 +10,54 @@
     // text in english because A-Frame's original fonts don't support portuguese characters
 
     // ---------------------------------------------------------------------------
-    // scenes
+    // scenes (minWidth = panel width when minimized, w = width of the portal tag)
     // ---------------------------------------------------------------------------
-
     const SCENES = {
       scene1: {
         skyRotation: -230,
+        minWidth: 1.39,
         title: 'Historic Centre, Palermo',
         text: 'The capital of Sicily, Palermo was founded by the Phoenicians almost three thousand years ago. Arabs, Normans and Spaniards all left their mark here, visible in the narrow streets, iron balconies and Baroque facades. Its Arab-Norman heritage is a UNESCO World Heritage Site.',
-        portals: [{ target: 'scene2', name: 'Venice' }, { target: 'scene3', name: 'Rome' }]
+        portals: [{ target: 'scene2', name: 'Venice', w: 0.46 }, { target: 'scene3', name: 'Rome', w: 0.42 }]
       },
       scene2: {
         skyRotation: 100,
+        minWidth: 0.96,
         title: 'Venice Lagoon',
         text: 'Venice rises from more than a hundred small islands, built on thousands of wooden piles. In the distance, at sunset, stand the bell towers of San Giorgio Maggiore and St Mark\'s Square. The city and its lagoon have been a UNESCO World Heritage Site since 1987.',
-        portals: [{ target: 'scene1', name: 'Palermo' }, { target: 'scene3', name: 'Rome' }]
+        portals: [{ target: 'scene1', name: 'Palermo', w: 0.54 }, { target: 'scene3', name: 'Rome', w: 0.42 }]
       },
       scene3: {
         skyRotation: -120,
+        minWidth: 1.11,
         title: 'Colosseum, Rome',
         text: 'Built between 70 and 80 AD under the Flavian dynasty, the Colosseum is the largest amphitheatre ever erected by the Roman Empire. It held more than 50,000 spectators for gladiator fights and public shows. The paving you are standing on is original Roman basalt.',
-        portals: [{ target: 'scene1', name: 'Palermo' }, { target: 'scene2', name: 'Venice' }]
+        portals: [{ target: 'scene1', name: 'Palermo', w: 0.54 }, { target: 'scene2', name: 'Venice', w: 0.46 }]
       }
     };
-
-    // ---------------------------------------------------------------------------
-    // helpers
-    // ---------------------------------------------------------------------------
-    
-    function textReady(el) {
-      const text = el.components.text;
-      return !!(text && text.mesh && text.currentFont);
-    }
-
-    function textBox(el) {
-      const mesh = el.components.text.mesh;
-      mesh.geometry.computeBoundingBox();
-      if (mesh.geometry.boundingBox.isEmpty()) {
-        return new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
-      }
-      mesh.updateMatrix();
-      const box = mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix);
-      const margin = 4 * Math.abs(mesh.scale.x);
-      return box.expandByVector(new THREE.Vector3(-margin, -margin, 0));
-    }
-
-    function placeText(el, box, left, top) {
-      el.object3D.position.set(left - box.min.x, top - box.max.y, 0.003);
-    }
-
-    // ---------------------------------------------------------------------------
-    // geometry
-    // ---------------------------------------------------------------------------
-    AFRAME.registerGeometry('rounded-rect', {
-      schema: {
-        width:    { default: 1, min: 0 },
-        height:   { default: 1, min: 0 },
-        // corners
-        radius:   { default: 0.05, min: 0 },
-        segments: { default: 8, min: 1, type: 'int' }
-      },
-      init: function (data) {
-        const w = data.width / 2;
-        const h = data.height / 2;
-        const r = Math.min(data.radius, w, h);
-        const shape = new THREE.Shape();
-        shape.moveTo(-w + r, -h);
-        shape.lineTo(w - r, -h);
-        shape.absarc(w - r, -h + r, r, -Math.PI / 2, 0);
-        shape.lineTo(w, h - r);
-        shape.absarc(w - r, h - r, r, 0, Math.PI / 2);
-        shape.lineTo(-w + r, h);
-        shape.absarc(-w + r, h - r, r, Math.PI / 2, Math.PI);
-        shape.lineTo(-w, -h + r);
-        shape.absarc(-w + r, -h + r, r, Math.PI, Math.PI * 1.5);
-        this.geometry = new THREE.ShapeGeometry(shape, data.segments);
-      }
-    });
 
     // ---------------------------------------------------------------------------
     // information panel
     // ---------------------------------------------------------------------------
     AFRAME.registerComponent('info-panel', {
       schema: {
-        label:     { default: 'INFORMATION' },
         title:     { default: '' },
         text:      { default: '' },
-        minimized: { default: false } // true or false
+        minWidth:  { default: 1.2 },
+        minimized: { default: false }
       },
-      
-      // panel sizes
-      WIDTH: 1.6,
-      PAD: 0.075,
-      // button to minimize sizes
-      BTN: 0.11,
-      BTN_MARGIN: 0.055,  
 
       init: function () {
         this.el.innerHTML = `
           <a-entity class="ip-border" mixin="panel-border"></a-entity>
           <a-entity class="ip-bg" mixin="panel-bg"></a-entity>
-          <a-entity class="ip-dash" mixin="accent-dash"></a-entity>
-          <a-entity class="ip-label" mixin="text-label"></a-entity>
+          <a-entity class="ip-dash" mixin="accent-dash" position="-0.7 -0.11 0.003"></a-entity>
+          <a-entity class="ip-label" mixin="text-label" text="value: INFORMATION" position="-0.6552 -0.0927 0.003"></a-entity>
           <a-entity class="ip-title" mixin="text-title"></a-entity>
-          <a-entity class="ip-rule" mixin="hairline"></a-entity>
-          <a-entity class="ip-body" mixin="text-body"></a-entity>
+          <a-entity class="ip-rule" mixin="hairline" position="0 -0.346 0.002"></a-entity>
+          <a-entity class="ip-body" mixin="text-body" position="-0.7311 -0.413 0.003"></a-entity>
           <a-entity class="ip-btn" mixin="round-button">
-            <a-entity class="ip-icon-h" mixin="icon-bar" geometry="width: 0.042; height: 0.007"></a-entity>
+            <a-entity mixin="icon-bar" geometry="width: 0.042; height: 0.007"></a-entity>
             <a-entity class="ip-icon-v" mixin="icon-bar" geometry="width: 0.007; height: 0.042"></a-entity>
           </a-entity>
           <a-entity class="ip-hit clickable" geometry="primitive: plane" material="visible: false"></a-entity>`;
@@ -124,103 +65,55 @@
         const $ = (cls) => this.el.querySelector('.' + cls);
         this.border = $('ip-border');
         this.bg = $('ip-bg');
-        this.dash = $('ip-dash');
-        this.labelEl = $('ip-label');
         this.titleEl = $('ip-title');
-        this.rule = $('ip-rule');
         this.bodyEl = $('ip-body');
         this.btn = $('ip-btn');
         this.iconV = $('ip-icon-v');
         this.hit = $('ip-hit');
+        this.openOnly = ['ip-dash', 'ip-label', 'ip-rule', 'ip-body'].map($);
 
-        // The invisible header area is what the cursor / lasers hit.
+        // the invisible header area is what the cursor / lasers hit
         this.hit.addEventListener('mouseenter', () => this.btn.emit('hoverstart', null, false));
         this.hit.addEventListener('mouseleave', () => this.btn.emit('hoverend', null, false));
         this.hit.addEventListener('click', () => {
           this.el.setAttribute('info-panel', 'minimized', !this.data.minimized);
         });
 
-        // Lay out again whenever one of the fonts finishes loading.
-        this.layout = this.layout.bind(this);
-        this.el.addEventListener('textfontset', this.layout);
-
-        // Small "pop" when the card changes size.
+        // small "pop" when the card changes size
         this.el.setAttribute('animation__pop',
           'property: scale; from: 0.97 0.97 1; to: 1 1 1; dur: 180; easing: easeOutQuad; startEvents: paneltoggle');
       },
 
       update: function (oldData) {
-        this.labelEl.setAttribute('text', 'value', this.data.label);
+        const min = this.data.minimized;
+        const W = min ? this.data.minWidth : 1.6;
+        const H = min ? 0.22 : 0.97;
+
         this.titleEl.setAttribute('text', 'value', this.data.title);
         this.bodyEl.setAttribute('text', 'value', this.data.text);
-        this.layout();
-        if (oldData.minimized !== undefined && oldData.minimized !== this.data.minimized) {
-          this.el.emit('paneltoggle', null, false);
-        }
-      },
 
-      layout: function () {
-        if (![this.labelEl, this.titleEl, this.bodyEl].every(textReady)) { return; }
-
-        const min = this.data.minimized;
-        const PAD = this.PAD, BTN = this.BTN, M = this.BTN_MARGIN;
-        const title = textBox(this.titleEl);
-        const titleW = title.max.x - title.min.x;
-        const titleH = title.max.y - title.min.y;
-
-        // Card width: full when open, just enough for the title + button when minimized.
-        const W = min ? Math.min(this.WIDTH, PAD + titleW + 0.05 + BTN + M) : this.WIDTH;
-        const left = -W / 2 + PAD;
-        let H;
-
-        // Round button in the top-right corner (− when open, + when minimized).
-        const rowH = min ? Math.max(BTN, titleH) : BTN;
-        const rowY = -M - rowH / 2;
-        this.btn.object3D.position.set(W / 2 - M - BTN / 2, rowY, 0.004);
-        this.iconV.setAttribute('visible', min);
-
-        if (min) {
-          // Minimized: only the title, vertically centred on the button.
-          placeText(this.titleEl, title, left, rowY + titleH / 2);
-          H = rowH + 2 * M;
-          this.setHit(W, H, 0);
-        } else {
-          // Open: accent dash + LABEL on the button row, then title, rule and text.
-          const label = textBox(this.labelEl);
-          const labelH = label.max.y - label.min.y;
-          this.dash.object3D.position.set(left + 0.025, rowY, 0.003);
-          placeText(this.labelEl, label, left + 0.075, rowY + labelH / 2);
-
-          let y = -M - BTN - 0.02;
-          placeText(this.titleEl, title, left, y);
-          y -= titleH + 0.065;
-          this.setHit(W, -y - 0.03, 0);
-
-          this.rule.setAttribute('geometry', 'width', W - 2 * PAD);
-          this.rule.object3D.position.set(0, y, 0.002);
-          y -= 0.06;
-
-          const body = textBox(this.bodyEl);
-          placeText(this.bodyEl, body, left, y);
-          y -= body.max.y - body.min.y;
-          H = -y + PAD;
-        }
-
-        [this.dash, this.labelEl, this.rule, this.bodyEl].forEach((el) => {
-          el.setAttribute('visible', !min);
-        });
-
-        // Card background (and a thin border behind it), centred below the top edge.
+        // card background and thin border behind it, hanging below the top edge
         this.bg.setAttribute('geometry', { width: W, height: H });
         this.bg.object3D.position.set(0, -H / 2, 0);
         this.border.setAttribute('geometry', { width: W + 0.012, height: H + 0.012 });
         this.border.object3D.position.set(0, -H / 2, -0.002);
-      },
 
-      // Invisible clickable area over the header row (the whole bar when minimized).
-      setHit: function (width, height, top) {
-        this.hit.setAttribute('geometry', { width: width, height: height });
-        this.hit.object3D.position.set(0, top - height / 2, 0.005);
+        // button in the top-right corner (− when open, + when minimized)
+        this.btn.object3D.position.set(W / 2 - 0.11, -0.11, 0.004);
+        this.iconV.object3D.visible = min;
+
+        // title: below the label when open, next to the button when minimized
+        this.titleEl.object3D.position.set(min ? -W / 2 + 0.044 : -0.7347, min ? -0.072 : -0.195, 0.003);
+        this.openOnly.forEach((el) => { el.object3D.visible = !min; });
+
+        // clickable area: header + title when open, the whole bar when minimized
+        const hitH = min ? 0.22 : 0.315;
+        this.hit.setAttribute('geometry', { width: W, height: hitH });
+        this.hit.object3D.position.set(0, -hitH / 2, 0.005);
+
+        if (oldData.minimized !== undefined && oldData.minimized !== min) {
+          this.el.emit('paneltoggle', null, false);
+        }
       }
     });
 
@@ -229,50 +122,44 @@
     // ---------------------------------------------------------------------------
     AFRAME.registerComponent('portal', {
       schema: {
-        target:  { default: '' },                
-        label:   { default: '' },                 
-        preview: { type: 'vec2', default: { x: 0.43, y: 0.36 } } 
+        target:  { default: '' },
+        label:   { default: '' },
+        width:   { default: 0.5 },
+        preview: { type: 'vec2', default: { x: 0.43, y: 0.36 } }
       },
 
-      RADIUS: 0.42,
-
       init: function () {
-        const R = this.RADIUS;
+        const R = 0.42;
         this.el.innerHTML = `
-          <a-entity class="pt-halo" geometry="primitive: ring; radiusInner: ${R + 0.018}; radiusOuter: ${R + 0.03}; segmentsTheta: 64"
+          <a-entity geometry="primitive: ring; radiusInner: ${R + 0.018}; radiusOuter: ${R + 0.03}; segmentsTheta: 64"
                     material="shader: flat; color: #000; opacity: 0.3; transparent: true"></a-entity>
           <a-entity class="pt-disc clickable" geometry="primitive: circle; radius: ${R}; segments: 64"
                     material="shader: flat; repeat: 0.14 0.28"></a-entity>
           <a-entity class="pt-rim" mixin="portal-rim" geometry="primitive: ring; radiusInner: ${R}; radiusOuter: ${R + 0.018}; segmentsTheta: 64"
                     position="0 0 0.002"></a-entity>
-          <a-entity class="pt-tag" position="0 ${-R - 0.2} 0">
+          <a-entity position="0 ${-R - 0.2} 0">
             <a-entity class="pt-pill clickable" mixin="portal-pill"></a-entity>
-            <a-entity class="pt-caption" mixin="text-caption" text="value: GO TO"></a-entity>
-            <a-entity class="pt-name" mixin="text-portal"></a-entity>
+            <a-entity mixin="text-caption" text="value: GO TO" position="0 0.075 0.003"></a-entity>
+            <a-entity class="pt-name" mixin="text-portal" position="0 -0.005 0.003"></a-entity>
           </a-entity>`;
 
-        const $ = (cls) => this.el.querySelector('.' + cls);
-        this.disc = $('pt-disc');
-        this.rim = $('pt-rim');
-        this.pill = $('pt-pill');
-        this.caption = $('pt-caption');
-        this.nameEl = $('pt-name');
+        this.disc = this.el.querySelector('.pt-disc');
+        this.pill = this.el.querySelector('.pt-pill');
+        this.nameEl = this.el.querySelector('.pt-name');
+        const rim = this.el.querySelector('.pt-rim');
 
         // mouse hover
         this.el.addEventListener('mouseenter', () => {
-          this.rim.emit('hoverstart', null, false);
+          rim.emit('hoverstart', null, false);
           this.pill.emit('hoverstart', null, false);
         });
         this.el.addEventListener('mouseleave', () => {
-          this.rim.emit('hoverend', null, false);
+          rim.emit('hoverend', null, false);
           this.pill.emit('hoverend', null, false);
         });
         this.el.addEventListener('click', () => {
           this.el.emit('navigate', { target: this.data.target });
         });
-
-        this.layout = this.layout.bind(this);
-        this.el.addEventListener('textfontset', this.layout);
       },
 
       update: function () {
@@ -281,28 +168,12 @@
           this.disc.setAttribute('material', { src: '#' + d.target, offset: d.preview });
         }
         this.nameEl.setAttribute('text', 'value', d.label);
-        this.layout();
-      },
-
-      layout: function () {
-        if (![this.caption, this.nameEl].every(textReady)) { return; }
-        const cap = textBox(this.caption);
-        const name = textBox(this.nameEl);
-        const capW = cap.max.x - cap.min.x, capH = cap.max.y - cap.min.y;
-        const nameW = name.max.x - name.min.x, nameH = name.max.y - name.min.y;
-
-        const PADX = 0.075, PADY = 0.05, GAP = 0.035;
-        const W = Math.max(capW, nameW) + 2 * PADX;
-        const H = capH + GAP + nameH + 2 * PADY;
-
-        placeText(this.caption, cap, -capW / 2, H / 2 - PADY);
-        placeText(this.nameEl, name, -nameW / 2, H / 2 - PADY - capH - GAP);
-        this.pill.setAttribute('geometry', { width: W, height: H, radius: H / 2 });
+        this.pill.setAttribute('geometry', 'width', d.width);
       }
     });
 
     // ---------------------------------------------------------------------------
-    // central controler 
+    // central controller
     // ---------------------------------------------------------------------------
     AFRAME.registerComponent('tour', {
       schema: {
@@ -316,7 +187,7 @@
         this.fade = this.el.querySelector('#fade');
         this.current = null;
         this.busy = false;
-        
+
         // navigate order
         this.el.addEventListener('navigate', (evt) => this.goTo(evt.detail.target));
         this.show(this.data.start);
@@ -327,10 +198,10 @@
         this.current = id;
         this.sky.setAttribute('src', '#' + id);
         this.sky.setAttribute('rotation', { x: 0, y: scene.skyRotation, z: 0 });
-        this.panel.setAttribute('info-panel', { title: scene.title, text: scene.text });
+        this.panel.setAttribute('info-panel', { title: scene.title, text: scene.text, minWidth: scene.minWidth });
         this.portals.forEach((portalEl, i) => {
           const p = scene.portals[i];
-          portalEl.setAttribute('portal', { target: p.target, label: p.name, preview: this.previewOf(p.target) });
+          portalEl.setAttribute('portal', { target: p.target, label: p.name, width: p.w, preview: this.previewOf(p.target) });
         });
       },
 
@@ -367,12 +238,12 @@
       <a-mixin id="text-label"   text="font: roboto; anchor: left; baseline: top; width: 1.0; wrapCount: 32; letterSpacing: 5; color: #8d97a8"></a-mixin>
       <a-mixin id="text-title"   text="font: roboto; anchor: left; baseline: top; width: 1.29; wrapCount: 22; color: #ffffff"></a-mixin>
       <a-mixin id="text-body"    text="font: roboto; anchor: left; baseline: top; width: 1.45; wrapCount: 40; lineHeight: 56; color: #d4d9e1"></a-mixin>
-      <a-mixin id="text-caption" text="font: roboto; anchor: left; baseline: top; width: 0.7; wrapCount: 24; letterSpacing: 6; color: #9aa4b5"></a-mixin>
-      <a-mixin id="text-portal"  text="font: roboto; anchor: left; baseline: top; width: 1.2; wrapCount: 20; color: #ffffff"></a-mixin>
+      <a-mixin id="text-caption" text="font: roboto; anchor: center; align: center; baseline: top; width: 0.7; wrapCount: 24; letterSpacing: 6; color: #9aa4b5"></a-mixin>
+      <a-mixin id="text-portal"  text="font: roboto; anchor: center; align: center; baseline: top; width: 1.2; wrapCount: 20; color: #ffffff"></a-mixin>
 
-      <a-mixin id="panel-bg"     geometry="primitive: rounded-rect; radius: 0.06" material="shader: flat; color: #0f1217; opacity: 0.9; transparent: true"></a-mixin>
-      <a-mixin id="panel-border" geometry="primitive: rounded-rect; radius: 0.066" material="shader: flat; color: #ffffff; opacity: 0.14; transparent: true"></a-mixin>
-      <a-mixin id="hairline"     geometry="primitive: plane; height: 0.003" material="shader: flat; color: #ffffff; opacity: 0.14; transparent: true"></a-mixin>
+      <a-mixin id="panel-bg"     geometry="primitive: plane" material="shader: flat; color: #0f1217; opacity: 0.9; transparent: true"></a-mixin>
+      <a-mixin id="panel-border" geometry="primitive: plane" material="shader: flat; color: #ffffff; opacity: 0.14; transparent: true"></a-mixin>
+      <a-mixin id="hairline"     geometry="primitive: plane; width: 1.45; height: 0.003" material="shader: flat; color: #ffffff; opacity: 0.14; transparent: true"></a-mixin>
       <a-mixin id="accent-dash"  geometry="primitive: plane; width: 0.05; height: 0.006" material="shader: flat; color: #4da3ff"></a-mixin>
       <a-mixin id="icon-bar"     geometry="primitive: plane" material="shader: flat; color: #ffffff" position="0 0 0.001"></a-mixin>
 
@@ -389,7 +260,7 @@
                animation__tint="property: components.material.material.color; type: color; to: #4da3ff; dur: 150; startEvents: hoverstart"
                animation__untint="property: components.material.material.color; type: color; to: #ffffff; dur: 150; startEvents: hoverend"></a-mixin>
       <a-mixin id="portal-pill"
-               geometry="primitive: rounded-rect; segments: 12"
+               geometry="primitive: plane; height: 0.256"
                material="shader: flat; color: #0f1217; opacity: 0.85; transparent: true"
                animation__tint="property: components.material.material.color; type: color; to: #1d4f86; dur: 150; startEvents: hoverstart"
                animation__untint="property: components.material.material.color; type: color; to: #0f1217; dur: 150; startEvents: hoverend"></a-mixin>
