@@ -29,7 +29,8 @@ The project is published with GitHub Pages:
 2. Serve the folder with a local web server (e.g. the VS Code *Live Server* extension, or `python -m http.server`).
 3. Open the address given by the server (e.g. `http://127.0.0.1:5500`) in the browser.
 
-[!WARNING] Note: opening `index.html` directly from the file system will not load the photos. VR mode requires HTTPS, so on the Meta Quest use the online version.
+> [!WARNING]
+> Opening `index.html` directly from the file system will not load the photos. VR mode requires HTTPS, so on the Meta Quest use the online version.
 
 ## Photo credits
 
