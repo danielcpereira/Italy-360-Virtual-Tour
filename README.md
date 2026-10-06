@@ -7,9 +7,8 @@ This project is **Exercise 1** of the **ARVI** course (2026). It is a virtual to
 - **Three 360º scenes** – Palermo, Venice and Rome.
 - **Portal navigation** – circular portals show a preview of the destination scene; selecting one moves the user there.
 - **Information panels** – each scene has a readable panel with a short description of the place, placed at a comfortable distance (3 meters) and eye level.
-- **Minimizable panel** – the panel can be collapsed into a small tab and expanded again, the choice persists across scenes.
-- **Clear interaction feedback** – portals and buttons react on hover (scale, accent color, focus ring) and on click.
-- **Audio and haptic feedback** – subtle sounds on hover and click, plus controller vibration on the Meta Quest.
+- **Minimizable panel** – the panel can be collapsed into a small tab and expanded again; the choice persists across scenes.
+- **Clear interaction feedback** – portals and buttons react on hover by growing slightly and changing to an accent color.
 - **Comfortable transitions** – scenes change with a smooth fade to black.
 
 ## How to run
@@ -27,10 +26,10 @@ The project is published with GitHub Pages:
 ### Locally
 
 1. Clone the repository.
-2. Serve the folder with a local web server (e.g. the VS Code *Live Server* extension).
-3. Open `index.html` in the browser.
+2. Serve the folder with a local web server (e.g. the VS Code *Live Server* extension, or `python -m http.server`).
+3. Open the address given by the server (e.g. `http://127.0.0.1:5500`) in the browser.
 
-Note: VR mode requires HTTPS, so on the Meta Quest use the online version.
+[!WARNING] Note: opening `index.html` directly from the file system will not load the photos. VR mode requires HTTPS, so on the Meta Quest use the online version.
 
 ## Photo credits
 
@@ -41,3 +40,7 @@ All 360º photographs are from [Poly Haven](https://polyhaven.com/) and are rele
 | Palermo | [Palermo Sidewalk](https://polyhaven.com/a/palermo_sidewalk) | *Andreas Mischok* |
 | Venice | [Venice Sunset](https://polyhaven.com/a/venice_sunset) | *Greg Zaal* |
 | Rome | [Colosseum](https://polyhaven.com/a/colosseum) | *Greg Zaal and Rico Cilliers* |
+
+## Author
+
+Daniel Coelho Pereira 
